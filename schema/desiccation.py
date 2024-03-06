@@ -52,6 +52,15 @@ class NamedEntity(ConfiguredBaseModel):
     label: Optional[str] = Field(None, description="""The label (name) of the named thing""")
     
 
+class EntityContainingDocument(NamedEntity):
+    
+    environmental_conditions: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of environmental conditions.""")
+    taxa: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of taxonomic terms of living things.""")
+    traits: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of traits.""")
+    id: str = Field(..., description="""A unique identifier for the named entity""")
+    label: Optional[str] = Field(None, description="""The label (name) of the named thing""")
+    
+
 class EnvironmentalCondition(NamedEntity):
     
     id: str = Field(..., description="""A unique identifier for the named entity""")
@@ -130,6 +139,7 @@ class AnnotatorResult(ConfiguredBaseModel):
 # see https://pydantic-docs.helpmanual.io/usage/models/#rebuilding-a-model
 ExtractionResult.model_rebuild()
 NamedEntity.model_rebuild()
+EntityContainingDocument.model_rebuild()
 EnvironmentalCondition.model_rebuild()
 Taxon.model_rebuild()
 Trait.model_rebuild()
