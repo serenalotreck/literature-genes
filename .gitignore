@@ -1,2 +1,5 @@
 *.db
 .ipynb_checkpoints
+old_notebooks
+data
+job_scripts
