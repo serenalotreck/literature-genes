@@ -54,26 +54,40 @@ class NamedEntity(ConfiguredBaseModel):
 
 class EntityContainingDocument(NamedEntity):
     
-    environmental_conditions: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of environmental conditions.""")
-    taxa: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of taxonomic terms of living things.""")
-    traits: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of traits.""")
+    genes: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of genes.""")
+    proteins: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of proteins.""")
+    molecules: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of molecules.""")
+    organisms: Optional[List[str]] = Field(default_factory=list, description="""A semicolon-separated list of taxonomic terms of living things.""")
+    gene_gene_interactions: Optional[List[GeneGeneInteraction]] = Field(default_factory=list, description="""A semicolon-separated list of gene-gene interactions.""")
+    gene_protein_interactions: Optional[List[GeneProteinInteraction]] = Field(default_factory=list, description="""A semicolon-separated list of gene-protein interactions.""")
+    gene_organism_relationships: Optional[List[GeneOrganismRelationship]] = Field(default_factory=list, description="""A semicolon-separated list of gene-organism relationships.""")
+    protein_protein_interactions: Optional[List[ProteinProteinInteraction]] = Field(default_factory=list, description="""A semicolon-separated list of protein-protein interactions.""")
+    protein_organism_relationships: Optional[List[ProteinOrganismRelationship]] = Field(default_factory=list, description="""A semicolon-separated list of protein-organism relationships.""")
+    gene_molecule_interactions: Optional[List[GeneMoleculeInteraction]] = Field(default_factory=list, description="""A semicolon-separated list of gene-molecule interactions.""")
+    protein_molecule_interactions: Optional[List[ProteinMoleculeInteraction]] = Field(default_factory=list, description="""A semicolon-separated list of protein-molecule interactions.""")
     id: str = Field(..., description="""A unique identifier for the named entity""")
     label: Optional[str] = Field(None, description="""The label (name) of the named thing""")
     
 
-class EnvironmentalCondition(NamedEntity):
+class Gene(NamedEntity):
     
     id: str = Field(..., description="""A unique identifier for the named entity""")
     label: Optional[str] = Field(None, description="""The label (name) of the named thing""")
     
 
-class Taxon(NamedEntity):
+class Protein(NamedEntity):
     
     id: str = Field(..., description="""A unique identifier for the named entity""")
     label: Optional[str] = Field(None, description="""The label (name) of the named thing""")
     
 
-class Trait(NamedEntity):
+class Molecule(NamedEntity):
+    
+    id: str = Field(..., description="""A unique identifier for the named entity""")
+    label: Optional[str] = Field(None, description="""The label (name) of the named thing""")
+    
+
+class Organism(NamedEntity):
     
     id: str = Field(..., description="""A unique identifier for the named entity""")
     label: Optional[str] = Field(None, description="""The label (name) of the named thing""")
@@ -82,6 +96,48 @@ class Trait(NamedEntity):
 class CompoundExpression(ConfiguredBaseModel):
     
     None
+    
+
+class GeneGeneInteraction(CompoundExpression):
+    
+    gene1: Optional[str] = Field(None)
+    gene2: Optional[str] = Field(None)
+    
+
+class GeneProteinInteraction(CompoundExpression):
+    
+    gene: Optional[str] = Field(None)
+    protein: Optional[str] = Field(None)
+    
+
+class GeneOrganismRelationship(CompoundExpression):
+    
+    gene: Optional[str] = Field(None)
+    organism: Optional[str] = Field(None)
+    
+
+class ProteinProteinInteraction(CompoundExpression):
+    
+    protein1: Optional[str] = Field(None)
+    protein2: Optional[str] = Field(None)
+    
+
+class ProteinOrganismRelationship(CompoundExpression):
+    
+    gene: Optional[str] = Field(None)
+    organism: Optional[str] = Field(None)
+    
+
+class GeneMoleculeInteraction(CompoundExpression):
+    
+    gene: Optional[str] = Field(None)
+    molecule: Optional[str] = Field(None)
+    
+
+class ProteinMoleculeInteraction(CompoundExpression):
+    
+    protein: Optional[str] = Field(None)
+    molecule: Optional[str] = Field(None)
     
 
 class Triple(CompoundExpression):
@@ -140,10 +196,18 @@ class AnnotatorResult(ConfiguredBaseModel):
 ExtractionResult.model_rebuild()
 NamedEntity.model_rebuild()
 EntityContainingDocument.model_rebuild()
-EnvironmentalCondition.model_rebuild()
-Taxon.model_rebuild()
-Trait.model_rebuild()
+Gene.model_rebuild()
+Protein.model_rebuild()
+Molecule.model_rebuild()
+Organism.model_rebuild()
 CompoundExpression.model_rebuild()
+GeneGeneInteraction.model_rebuild()
+GeneProteinInteraction.model_rebuild()
+GeneOrganismRelationship.model_rebuild()
+ProteinProteinInteraction.model_rebuild()
+ProteinOrganismRelationship.model_rebuild()
+GeneMoleculeInteraction.model_rebuild()
+ProteinMoleculeInteraction.model_rebuild()
 Triple.model_rebuild()
 TextWithTriples.model_rebuild()
 TextWithEntity.model_rebuild()
