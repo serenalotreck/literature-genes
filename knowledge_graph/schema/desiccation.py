@@ -124,7 +124,7 @@ class ProteinProteinInteraction(CompoundExpression):
 
 class ProteinOrganismRelationship(CompoundExpression):
     
-    gene: Optional[str] = Field(None)
+    protein: Optional[str] = Field(None)
     organism: Optional[str] = Field(None)
     
 
