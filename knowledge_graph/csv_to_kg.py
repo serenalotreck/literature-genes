@@ -10,6 +10,69 @@ import pandas as pd
 import jsonlines
 import networkx as nx
 
+
+def format_kg(ent_df, rel_df, mapped_dset, dset1_name, dset2_name):
+    """
+    Format entity and relation df's into a single networkx DiGraph object.
+
+    parameters:
+        ent_df, df: entity dataframe from OntoGPT, with UIDs
+        rel_df, df: relation dataframe from OntoGPT, with UIDs
+        mapped_dset, dict: keys are UIDs, values are dicts with attribute
+            values
+        dset1_name, str: name of attribute identifying something as being from
+            dset1
+        dset2_name, str: name of attribute identifying something as being from
+            dset2
+
+    returns:
+        graph, networkx DiGraph: graph
+    """
+    # Instantiate graph
+    graph = nx.DiGraph()
+
+    # Format nodes
+    nodes = []
+    for i, row in ent_df.iterrows():
+        val = row.name
+        attrs = {
+                'ent_id': row.id,
+                'ent_type': row.category,
+                'origin': row.UID,
+                'ontogpt_origin': row.provided_by,
+                f'is_{dset1_name}': mapped_dset[row.UID][f'is_{dset1_name}'],
+                f'is_{dset2_name}': mapped_dset[row.UID][f'is_{dset2_name}']
+                }
+        nodes.append((val, attrs))
+
+    # Make ent ID --> name dict
+    id2name = {attrs['ent_id']: val for val, attrs in nodes}
+
+    # Format edges
+    edges = []
+    for i, row in rel_df.iterrows():
+        try:
+            e1 = id2name[row.subject]
+            e2 = id2name[row.object]
+            attrs = {
+                    'edge_id': row.id,
+                    'edge_label': row.predicate,
+                    'origin': row.UID,
+                    'ontogpt_origin': row.provided_by,
+                    f'is_{dset1_name}': mapped_dset[row.UID][f'is_{dset1_name}'],
+                    f'is_{dset2_name}': mapped_dset[row.UID][f'is_{dset2_name}']
+                    }
+            edges.append((e1, e2, attrs))
+        except KeyError as e:
+            print(f'Relation skipped due to subject/object {e}')
+
+    # Add to graph
+    _ = graph.add_nodes_from(nodes)
+    _ = graph.add_edges_from(edges)
+
+    return graph
+
+
 def map_doc_keys(ent_df, rel_df, input_dir):
     """
     Map the provided_by ID's to the original doc ID's. Assumes the order was
@@ -34,19 +97,32 @@ def main(dset_path, ent_df, rel_df, ontogpt_input_dir, dset1_name, dset2_name,
         out_loc, out_prefix):
 
     # Read in data
+    print('\nReading in data...')
     ent_df = pd.read_csv(ent_df)
     rel_df = pd.read_csv(rel_df)
 
     # Read in original dataset with desiccation attributes, map by UID
     with jsonlines.open(dset_path) as reader:
         dset = [obj for obj in reader]
-    mapped_dset = {p['UID']: {dset1_name: p[dset1_name], dset2_name:
-        p[dset2_name]}
+    mapped_dset = {p['UID']: {f'is_{dset1_name}':
+        p[f'is_{dset1_name}'], f'is_{dset2_name}':
+        p[f'is_{dset2_name}']} for p in dset}
 
     # Map UIDs
     ent_df, rel_df = map_doc_keys(ent_df, rel_df, ontogpt_input_dir)
 
-    # Add original dataset attributes to entities
+    # Format KG
+    print('\nFormatting knowledge graph...')
+    graph = format_kg(ent_df, rel_df, mapped_dset, dset1_name, dset2_name)
+
+    # Save
+    print('\nSaving...')
+    savepath = f'{out_loc}/{out_prefix}_kg.graphml'
+    nx.write_graphml(graph, savepath)
+    print(f'Saved graph as {savepath}')
+
+    print('\nDone!')
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Format KG')
@@ -76,7 +152,7 @@ if __name__ == "__main__":
     args.ontogpt_input_dir = abspath(args.ontogpt_input_dir)
     args.out_loc = abspath(args.out_loc)
 
-    main(args.dset_path args.ent_df, args.rel_df, args.ontogpt_input_dir,
+    main(args.dset_path, args.ent_df, args.rel_df, args.ontogpt_input_dir,
             args.dset1_name, args.dset2_name, args.out_loc, args.out_prefix)
 
 
