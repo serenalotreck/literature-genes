@@ -81,7 +81,7 @@ classes:
     id_prefixes:
       - CHEBI
     annotations:
-      annotators: gilda:, sqlite:obo:chebi
+            annotators: sqlite:obo:chebi
   Organism:
     is_a: NamedEntity
     id_prefixes:
