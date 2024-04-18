@@ -1,0 +1,182 @@
+---
+id: http://w3id.org/ontogpt/desiccation
+name: desiccation
+title: desiccationTemplate
+description: A template for extracting desiccation related molecular entities and relations
+license: https://creativecommons.org/publicdomain/zero/1.0/
+prefixes:
+  linkml: https://w3id.org/linkml/
+  desiccation: http://w3id.org/ontogpt/desiccation
+default_prefix: desiccation
+default_range: string
+imports:
+  - linkml:types
+  - core
+classes:
+  EntityContainingDocument:
+    tree_root: true
+    is_a: NamedEntity
+    attributes:
+      genes:
+        range: Gene
+        multivalued: true
+        description: A semicolon-separated list of genes.
+      proteins:
+        range: Protein
+        multivalued: true
+        description: A semicolon-separated list of proteins.
+      molecules:
+        range: Molecule
+        multivalued: true
+        description: A semicolon-separated list of molecules.
+      organisms:
+        range: Organism
+        multivalued: true
+        description: A semicolon-separated list of taxonomic terms of living things.
+      gene_gene_interactions:
+        range: GeneGeneInteraction
+        multivalued: true
+        description: A semicolon-separated list of gene-gene interactions.
+      gene_protein_interactions:
+        range: GeneProteinInteraction
+        multivalued: true
+        description: A semicolon-separated list of gene-protein interactions.
+      gene_organism_relationships:
+        range: GeneOrganismRelationship
+        multivalued: true
+        description: A semicolon-separated list of gene-organism relationships.
+      protein_protein_interactions:
+        range: ProteinProteinInteraction
+        multivalued: true
+        description: A semicolon-separated list of protein-protein interactions.
+      protein_organism_relationships:
+        range: ProteinOrganismRelationship
+        multivalued: true
+        description: A semicolon-separated list of protein-organism relationships.
+      gene_molecule_interactions:
+        range: GeneMoleculeInteraction
+        multivalued: true
+        description: A semicolon-separated list of gene-molecule interactions.
+      protein_molecule_interactions:
+        range: ProteinMoleculeInteraction
+        multivalued: true
+        description: A semicolon-separated list of protein-molecule interactions.
+  Gene:
+    is_a: NamedEntity
+    id_prefixes:
+      - GO
+    annotations:
+      annotators: sqlite:obo:go
+      prompt: |-
+        the name of a gene.
+         Examples are Oropetium_20150105_12014, AT2G21490.
+  Protein:
+    is_a: NamedEntity
+    id_prefixes:
+      - PR
+    annotations:
+            annotators: sqlite:obo:pr 
+  Molecule:
+    is_a: NamedEntity
+    id_prefixes:
+      - CHEBI
+    annotations:
+            annotators: sqlite:obo:chebi
+  Organism:
+    is_a: NamedEntity
+    id_prefixes:
+      - NCBITaxon
+    annotations:
+            annotators: sqlite:obo:ncbitaxon
+      prompt: |-
+        the name of a taxonomic name or species.
+         Examples are Bacillus subtilus, Bos taurus, blue whale.
+  GeneGeneInteraction:
+    is_a: CompoundExpression
+    attributes:
+      gene1:
+        range: Gene
+        annotations:
+          prompt: the name of a gene.
+      gene2:
+        range: Gene
+        annotations:
+          prompt: the name of a gene that interacts with gene1. Interactions
+           can include genetic interactions, or genes whose expression has an
+           effect on another gene.
+  GeneProteinInteraction:
+    is_a: CompoundExpression
+    attributes:
+      gene:
+        range: Gene
+        annotations:
+          prompt: the name of a gene.
+      protein:
+        range: Protein
+        annotations:
+          prompt: the name of a protein that interacts with the gene.
+           Interactions can include physical interactions, like a transcription
+           factor that binds to a gene promoter to affect expression, or indirect
+           interactions, like when the action of a protein somewhere else in the
+           cell impacts the expression of a gene.
+  GeneOrganismRelationship:
+    is_a: CompoundExpression
+    attributes:
+      gene:
+        range: Gene
+        annotations:
+          prompt: the name of a gene.
+      organism:
+        range: Organism
+        annotations:
+          prompt: the name of an organism to which the gene belongs.
+  ProteinProteinInteraction:
+    is_a: CompoundExpression
+    attributes:
+      protein1:
+        range: Protein
+        annotations:
+          prompt: the name of a protein.
+      protein2:
+        range: Protein
+        annotations:
+          prompt: the name of a protein that interacts with protein1. An example
+           of an interaction is one protein binding another, or a protein
+           phosphorylating another.
+  ProteinOrganismRelationship:
+    is_a: CompoundExpression
+    attributes:
+      protein:
+        range: Protein
+        annotations:
+          prompt: the name of a protein.
+      organism:
+        range: Organism
+        annotations:
+          prompt: the name of an organism to which the protein belongs.
+  GeneMoleculeInteraction:
+    is_a: CompoundExpression
+    attributes:
+      gene:
+        range: Gene
+        annotations:
+          prompt: the name of a gene.
+      molecule:
+        range: Molecule
+        annotations:
+          prompt: the name of a molecule that interacts with a gene. Examples
+           include a methyl group being added to a segment of DNA as part of
+           methylation.
+  ProteinMoleculeInteraction:
+    is_a: CompoundExpression
+    attributes:
+      protein:
+        range: Protein
+        annotations:
+          prompt: the name of a protein.
+      molecule:
+        range: Molecule
+        annotations:
+          prompt: the name of a molecule that interacts with the protein. An
+           example of a protein-molecule interaction is when an allosteric
+           inhibitor binds an enzyme's allosteric site.
