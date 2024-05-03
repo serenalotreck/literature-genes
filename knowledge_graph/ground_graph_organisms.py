@@ -8,7 +8,7 @@ sys.path.append('../../desiccation-network/desiccation_network/build_citation_ne
 from classify_papers import make_ent_docs
 import json
 import time
-
+from taxonerd.linking.linking import EntityLinker
 
 print('\nReading in data...')
 with open('../data/kg/full_graph_multicellular_ents_02May2024.txt') as f:
@@ -25,6 +25,9 @@ print('\nMaking spacy docs...')
 multicellular_docs = make_ent_docs(ents, nlp)
 
 print('\nPerforming linking...')
+linker_start = time.time()
+linker = EntityLinker(linker_name='ncbi_taxonomy', resolve_abbreviations=False)
+print(f'Time to load linker: {time.time() - linker_start}')
 species_ids = {}
 for i, doc in enumerate(multicellular_docs):
     start = time.time()
