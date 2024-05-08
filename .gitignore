@@ -4,3 +4,4 @@ old_notebooks
 data
 job_scripts
 knowledge_graph/schema/chebi_lite*
+corenlp_server*
