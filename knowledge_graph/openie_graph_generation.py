@@ -21,7 +21,7 @@ with StanfordOpenIE() as client:
             triples.append(triple)
 
 print('\nReading in DyGIE++ graph...')
-dygie_co_graph = nx.read_graphml('../../data/kg/all_drought_dt_co_occurrence_graph_02May2024.graphml')
+dygie_co_graph = nx.read_graphml('../data/kg/all_drought_dt_co_occurrence_graph_02May2024.graphml')
 dygiepp_ents = list(dygie_co_graph.nodes())
 
 print('\nFiltering openIE results...')
