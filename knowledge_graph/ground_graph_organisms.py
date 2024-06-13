@@ -11,7 +11,7 @@ import time
 from taxonerd.linking.linking import EntityLinker
 
 print('\nReading in data...')
-with open('../data/kg/full_graph_multicellular_ents_03Jun2024.txt') as f:
+with open('../data/kg/full_graph_multicellular_ents_13Jun2024.txt') as f:
     ents = [line.strip() for line in f.readlines()]
 num_chars = len(" ".join(ents))
 print(f'There are {num_chars} characters of Multicellular_organism entities, '
@@ -38,5 +38,5 @@ for i, doc in enumerate(multicellular_docs):
         species_ids[ent.text] = ent_id
 
 print('\nSaving...')
-with open('../data/kg/full_graph_multicellular_ents_GROUNDED_03Jun2024.json', 'w') as f:
+with open('../data/kg/full_graph_multicellular_ents_GROUNDED_13Jun2024.json', 'w') as f:
     json.dump(species_ids, f)
