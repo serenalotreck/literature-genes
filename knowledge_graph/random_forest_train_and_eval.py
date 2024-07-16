@@ -33,6 +33,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 plt.rcParams['pdf.fonttype'] = 42
 import numpy as np
+from itertools import cycle
 
 
 def auc_scores(y_onehot_test, y_score, label_map):
@@ -79,13 +80,14 @@ def auc_scores(y_onehot_test, y_score, label_map):
     return fpr, tpr, roc_auc, rec, prec, prc_auc, n_classes
 
 
-def evaluate_model(test_df, best_rf, label_map, outloc, outprefix,
+def evaluate_model(train_df, test_df, best_rf, label_map, dataset, outloc, outprefix,
                    short_rescname, samp_strat):
     """
     Evaluate model and generate visualizations.
 
     parameters:
-        test_df, pandas df: test set wtih features
+        train_df, pandas df: train set with features
+        test_df, pandas df: test set with features
         best_rf, sklearn RandomForestClassifier
         label_map, dict: label map
         outloc, str: path to save
@@ -97,6 +99,8 @@ def evaluate_model(test_df, best_rf, label_map, outloc, outprefix,
     X_test = test_df.drop(columns='label').to_numpy()
     y_test = test_df['label'].to_numpy()
     y_pred = best_rf.predict(X_test)
+    X_train = train_df.drop(columns='label').to_numpy()
+    y_train = train_df['label'].to_numpy()
 
     # Make savename prefix
     figure_save_prefix = f'{outloc}/{outprefix}_{short_rescname}_{samp_strat}'
@@ -123,7 +127,7 @@ def evaluate_model(test_df, best_rf, label_map, outloc, outprefix,
                                  average='macro',
                                  multi_class='ovr')
     print(
-        '\nModel {short_rescname}/{samp_strat} has a macro-averaged F1 score of {f1:.2f} and a one-v-rest macro-averaged AUROC of {auroc_score:.2f}'
+        f'\nModel {short_rescname}/{samp_strat} has a macro-averaged F1 score of {f1:.2f} and a one-v-rest macro-averaged AUROC of {aucroc_score:.2f}'
     )
 
     # AUROC curves
@@ -175,7 +179,8 @@ def generate_features(model, checkpoint, dataset, node_pairs, training_tf):
         node_pairs, list of tuple: pairs for which to generate a feature set
 
     returns:
-        node_df, pandas df: feature table
+        node_df, pandas df: feature table,
+        label_map, dict: label map
     """
     node_reps = model.entity_representations[0]()
     ent_map = checkpoint['entity_to_id_dict']
@@ -210,7 +215,7 @@ def generate_features(model, checkpoint, dataset, node_pairs, training_tf):
         all_node_feat_dfs.append(class_df)
     node_df = pd.concat(all_node_feat_dfs).sample(frac=1)  # Shuffle the data
 
-    return node_df
+    return node_df, label_map
 
 
 def get_class_pairs(semantic_trips,
@@ -299,8 +304,12 @@ def get_class_pairs(semantic_trips,
                     not_pos = False
             if not_pos:
                 negs.append(pair)
-            if len(negs) == sum([len(v) for v in positives.values()]):
-                break
+            if neg_balance == 'one':
+                if len(negs) == num_inst:
+                    break
+            elif neg_balance == 'total':
+                if len(negs) == sum([len(v) for v in positives.values()]):
+                    break
 
     elif sampling_method == 'corrupt':  # Currently implemented for tail-only corruption
         negs = defaultdict(list)
@@ -316,6 +325,17 @@ def get_class_pairs(semantic_trips,
                         is_neg = True
                 neg_trip = (head, new_tail)
                 negs[trip_type].append(neg_trip)
+                if neg_balance == 'one':
+                    if len(negs[trip_type]) == len(pos_trips) // len(positives):
+                        if sum([len(ts) for ts in negs.values()]) == len(pos_trips) - 1:
+                            continue # Get the last instance to make the balance equal
+                        else:
+                            break
+                    if sum([len(ts) for ts in negs.values()]) == len(pos_trips):
+                        break
+                elif neg_balance == 'total':
+                    if len(negs) == sum([len(v) for v in positives.values()]):
+                        break
 
     elif sampling_method == 'embedding':
         rev_ent_map = {v: k for k, v in ent_map.items()}
@@ -352,6 +372,11 @@ def get_class_pairs(semantic_trips,
                 num_class_negs += 1
                 if neg_balance == 'one':
                     if num_class_negs == len(pos_trips) // len(positives):
+                        if sum([len(ts) for ts in negs.values()]) == len(pos_trips) - 1:
+                            continue # Get the last instance to make the balance equal
+                        else:
+                            break
+                    if sum([len(ts) for ts in negs.values()]) == len(pos_trips):
                         break
 
     data = {'positives': positives, 'negatives': negs}
@@ -425,6 +450,7 @@ def main(rescal_ckpt_names, graph_path, dataset, model_random_seed,
                                  num_inst=num_test_inst,
                                  sampling_method='random',
                                  neg_balance='one')
+    counted_pos = {k:len(v) for k,v in test_pairs["positives"].items()}
     test_classes = [k for k in test_pairs.keys()] + ['negative']
 
     # Get the training set for each sampling strategy
@@ -469,10 +495,10 @@ def main(rescal_ckpt_names, graph_path, dataset, model_random_seed,
                     sampling_method='random',
                     neg_balance='total',
                     prev_positives=positives_to_reuse)
-            train_df = generate_features(components['model'],
+            train_df, label_map = generate_features(components['model'],
                                          components['checkpoint'], dataset,
                                          train_pairs, components['training'])
-            test_df = generate_features(components['model'],
+            test_df, _ = generate_features(components['model'],
                                         components['checkpoint'], dataset,
                                         test_pairs, components['testing'])
             train_savename = f'{outloc}/{outprefix}_{short_rescname}_{samp_strat}_training_set.csv'
@@ -502,7 +528,7 @@ def main(rescal_ckpt_names, graph_path, dataset, model_random_seed,
             print(f'Saved model as {model_savename}')
 
             print('\nEvaluating model...')
-            evaluate_model(test_df, best_rf, label_map, outloc, outprefix,
+            evaluate_model(train_df, test_df, best_rf, label_map, dataset, outloc, outprefix,
                            short_rescname, samp_strat)
 
     print('\nDone!')
