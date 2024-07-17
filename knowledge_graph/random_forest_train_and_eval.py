@@ -294,22 +294,17 @@ def get_class_pairs(semantic_trips,
         set([trip[0] for trip in semantic_trips] +
             [trip[2] for trip in semantic_trips]))
     if sampling_method == 'random':
-        negs = []
-        for pair in combinations(all_ents, 2):
-            not_pos = True
-            for r_type, pairs in positives.items():
-                if pair in pairs:
-                    not_pos = False
-                elif (pair[1], pair[0]) in pairs:
-                    not_pos = False
-            if not_pos:
-                negs.append(pair)
-            if neg_balance == 'one':
-                if len(negs) == num_inst:
-                    break
-            elif neg_balance == 'total':
-                if len(negs) == sum([len(v) for v in positives.values()]):
-                    break
+        flattened_pos = [i for pairs in positives.values() for i in pairs]
+        if neg_balance == 'one':
+            to_sample = num_inst
+        elif neg_balance == 'total':
+            to_sample = sum([len(v) for v in positives.values()])
+        heads = sample(all_ents, to_sample*2)
+        tails = sample(all_ents, to_sample*2)
+        negs = [(h, t) for h, t in zip(heads, tails) if (h != t) and ((h,t) not
+            in flattened_pos)]
+        negs = sample(negs, to_sample)
+        assert len(negs) <= to_sample, f"short by {to_sample - len(negs)}"
 
     elif sampling_method == 'corrupt':  # Currently implemented for tail-only corruption
         negs = defaultdict(list)
