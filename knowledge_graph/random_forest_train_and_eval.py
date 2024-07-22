@@ -4,6 +4,10 @@ model. For a given set of RESCAL models, three sampling strategies will be used
 and tested on an identical test set for RF models. Therefore, the number of RF
 models trained is the number of RESCAL models provided times 3.
 
+NOTE: The GPE option is currently broken; I suspect it's because the
+types_to_exclude option in get_class_pairs doesn't work, which could impact
+other datasets.
+
 Author: Serena G. Lotreck
 """
 import argparse
@@ -34,6 +38,8 @@ import matplotlib.pyplot as plt
 plt.rcParams['pdf.fonttype'] = 42
 import numpy as np
 from itertools import cycle
+from scipy.spatial.distance import cdist, squareform
+from scipy.special import softmax
 
 
 def auc_scores(y_onehot_test, y_score, label_map):
@@ -168,7 +174,7 @@ def evaluate_model(train_df, test_df, best_rf, label_map, dataset, outloc, outpr
                 bbox_inches='tight')
 
 
-def generate_features(model, checkpoint, dataset, node_pairs, training_tf):
+def generate_features(model, checkpoint, dataset, node_pairs, label_map=None):
     """
     Generate the feature matrix for a given set of node pairs.
 
@@ -177,22 +183,16 @@ def generate_features(model, checkpoint, dataset, node_pairs, training_tf):
         checkpoint, PYKEEN CHECKPOINT: checkpoint for model
         dataset, str: "gpe" or "dt"
         node_pairs, list of tuple: pairs for which to generate a feature set
+        label_map, dict: keys are label string, values are their corresponding
+            integers
 
     returns:
         node_df, pandas df: feature table,
-        label_map, dict: label map
     """
+    print('number of node pairs we want to gen features for:', [len(p) for k, p
+        in node_pairs.items()])
     node_reps = model.entity_representations[0]()
     ent_map = checkpoint['entity_to_id_dict']
-
-    if dataset == 'dt':
-        label_map = {'desiccation': 1, 'drought': 2, 'both': 3, 'negative': 0}
-    elif dataset == 'gpe':
-        trips = training_tf.triples
-        train_ent_types = Counter([t[1] for t in trips])
-        labels = [k for k, v in train_ent_types.items() if v > 2000
-                  ] + ['negative']
-        label_map = {k: i for i, k in enumerate(labels)}
 
     node_pairs_flattened = {k: v for k, v in node_pairs['positives'].items()}
     try:
@@ -215,7 +215,7 @@ def generate_features(model, checkpoint, dataset, node_pairs, training_tf):
         all_node_feat_dfs.append(class_df)
     node_df = pd.concat(all_node_feat_dfs).sample(frac=1)  # Shuffle the data
 
-    return node_df, label_map
+    return node_df
 
 
 def get_class_pairs(semantic_trips,
@@ -420,7 +420,7 @@ def main(rescal_ckpt_names, graph_path, dataset, model_random_seed,
          data_random_seed, num_test_inst, num_train_inst, outloc, outprefix):
 
     # Load model and training splits
-    print('\nLoading RESCAL model and training splits...')
+    print('\nLoading RESCAL models and training splits...')
     rescal_models = defaultdict(dict)
     for ckpt in rescal_ckpt_names:
         training, testing, checkpoint, model = load_rescal(
@@ -441,22 +441,24 @@ def main(rescal_ckpt_names, graph_path, dataset, model_random_seed,
     print('\nGetting the test set to be used for all models, random sampling '
           'strategy will be used for negatives.')
     rescal_test_trips = list(rescal_models.values())[0]['testing'].triples
+    if dataset == 'gpe':
+        test_ent_types = Counter([t[1] for t in rescal_test_trips])
+        types_to_exclude = [i for i, c in test_ent_types.items() if c <
+                num_test_inst]
+        print(f'\nThere are {len(test_ent_types)} entity types and '
+                f'{len(types_to_exclude)} types to exclude. The types to '
+                f'exclude are: {types_to_exclude}')
+    else:
+        types_to_exclude = None
     test_pairs = get_class_pairs(rescal_test_trips,
                                  num_inst=num_test_inst,
+                                 types_to_exclude=types_to_exclude,
                                  sampling_method='random',
                                  neg_balance='one')
-    counted_pos = {k:len(v) for k,v in test_pairs["positives"].items()}
-    test_classes = [k for k in test_pairs.keys()] + ['negative']
 
     # Get the training set for each sampling strategy
     print('\nGenerating positive training set...')
     rescal_train_trips = list(rescal_models.values())[0]['training'].triples
-    if dataset == 'gpe':
-        train_ent_types = Counter([t[1] for t in rescal_train_trips])
-        types_to_exclude = [i for i in train_ent_types if i not in
-                test_classes]
-    else:
-        types_to_exclude = None
     random_train_pairs = get_class_pairs(rescal_train_trips,
                                          num_inst=num_train_inst,
                                          types_to_exclude=types_to_exclude,
@@ -466,7 +468,7 @@ def main(rescal_ckpt_names, graph_path, dataset, model_random_seed,
 
     # Pull the training negatives and train model for each pairing
     print(
-        '\nPulling negative samples and training for each RESCAL/RF comboination...'
+        '\nPulling negative samples and training for each RESCAL/RF combination...'
     )
     for resc_name, components in rescal_models.items():
         short_rescname = resc_name.split('.')[0]
@@ -474,8 +476,8 @@ def main(rescal_ckpt_names, graph_path, dataset, model_random_seed,
             print(f'\nOn combination {resc_name} + {samp_strat}')
             if samp_strat == 'embedding':
                 train_pairs = get_class_pairs(
-                    train_trips_semantic,
-                    num_inst=2000,
+                    rescal_train_trips,
+                    num_inst=num_train_inst,
                     types_to_exclude=types_to_exclude,
                     sampling_method=samp_strat,
                     node_reps=components['model'].entity_representations[0](),
@@ -490,12 +492,23 @@ def main(rescal_ckpt_names, graph_path, dataset, model_random_seed,
                     sampling_method='random',
                     neg_balance='total',
                     prev_positives=positives_to_reuse)
-            train_df, label_map = generate_features(components['model'],
+                print(f'Types sampled from training set:{train_pairs["positives"].keys()}')
+
+            print('number of node pairs we pulled for training:', [len(p) for k, p
+                            in train_pairs.items()])
+            if dataset == 'dt':
+                label_map = {'desiccation': 1, 'drought': 2, 'both': 3, 'negative': 0}
+            elif dataset == 'gpe':
+                label_map = {k: i for i, k in
+                        enumerate(test_pairs['positives'].keys())}
+                label_map['negative'] = len(label_map)
+                print(f'Label map for GPE: {label_map}')
+            train_df = generate_features(components['model'],
                                          components['checkpoint'], dataset,
-                                         train_pairs, components['training'])
-            test_df, _ = generate_features(components['model'],
+                                         train_pairs, label_map)
+            test_df = generate_features(components['model'],
                                         components['checkpoint'], dataset,
-                                        test_pairs, components['testing'])
+                                        test_pairs, label_map)
             train_savename = f'{outloc}/{outprefix}_{short_rescname}_{samp_strat}_training_set.csv'
             test_savename = f'{outloc}/{outprefix}_{short_rescname}_{samp_strat}_testing_set.csv'
             train_df.to_csv(train_savename)
